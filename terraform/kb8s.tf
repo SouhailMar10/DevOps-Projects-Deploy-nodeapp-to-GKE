@@ -1,62 +1,128 @@
-resource "kubernetes_deployment" "name"{
-    metadata{
-        name="nodeappdeployment"
-        labels={
-            type= "backend"
-            app= "nodeapp"
-        }
-    }
-    spec {
-        replicas= 1
-        selector {
-            matchLabels={
-                type= "backend"
-                app= "nodeapp"
-            }
-        }
-        template {
-            metadata{
-                name="nodeapppod"
-                labels={
-                    type= "backend"
-                    app= "nodeapp"
-                }
-            }
-            spec{
-                container{
-                    name="nodeappcontainer"
-                    image= var.container_image
-                    port{
-                        container_port= 80
-                    }
-                }
-            }
+# resource "kubernetes_deployment" "name"{
+#     metadata{
+#         name="nodeappdeployment"
+#         labels={
+#             type= "backend"
+#             app= "nodeapp"
+#         }
+#     }
+#     spec {
+#         replicas= 1
+#         selector {
+#             matchLabels={
+#                 type= "backend"
+#                 app= "nodeapp"
+#             }
+#         }
+#         template {
+#             metadata{
+#                 name="nodeapppod"
+#                 labels={
+#                     type= "backend"
+#                     app= "nodeapp"
+#                 }
+#             }
+#             spec{
+#                 container{
+#                     name="nodeappcontainer"
+#                     image= var.container_image
+#                     port{
+#                         container_port= 80
+#                     }
+#                 }
+#             }
             
-        }
+#         }
+#     }
+# }
+# resource "google_compute_address" "default"{
+
+#         name="ipforservice"
+#         region=var.region
+#     }
+
+
+# resource "kubernetes_service" "appservice"{
+#     metadata{
+#         name="nodeapp-load-balancer-service"
+
+#     }
+#     spec{
+#         type="LoadBalancer"
+#         load_balancer_ip=google_compute_address.default.google_compute_address
+#         port{
+#             port=80
+#             target_port= 80
+#         }
+#         selector={
+#             type= "backend"
+#             app= "nodeapp"
+#         }
+#     }
+# }
+
+resource "kubernetes_deployment" "nodeapp" {
+  metadata {
+    name = "nodeappdeployment"
+    labels = {
+      type = "backend"
+      app  = "nodeapp"
     }
+  }
+
+  spec {
+    replicas = 1
+
+    selector {
+      match_labels = {
+        type = "backend"
+        app  = "nodeapp"
+      }
+    }
+
+    template {
+      metadata {
+        labels = {
+          type = "backend"
+          app  = "nodeapp"
+        }
+      }
+
+      spec {
+        container {
+          name  = "nodeappcontainer"
+          image = var.container_image
+          port {
+            container_port = 80
+          }
+        }
+      }
+    }
+  }
 }
-resource "google_compute_address" "default"{
 
-        name="ipforservice"
-        region=var.region
+resource "google_compute_address" "default" {
+  name   = "ipforservice"
+  region = var.region
+}
+
+resource "kubernetes_service" "appservice" {
+  metadata {
+    name = "nodeapp-load-balancer-service"
+  }
+
+  spec {
+    selector = {
+      type = "backend"
+      app  = "nodeapp"
     }
 
+    type             = "LoadBalancer"
+    load_balancer_ip = google_compute_address.default.address
 
-resource "kubernetes_service" "appservice"{
-    metadata{
-        name="nodeapp-load-balancer-service"
-
+    port {
+      port        = 80
+      target_port = 80
     }
-    spec{
-        type="LoadBalancer"
-        load_balancer_ip=google_compute_address.default.google_compute_address
-        port{
-            port=80
-            target_port= 80
-        }
-        selector={
-            type= "backend"
-            app= "nodeapp"
-        }
-    }
+  }
 }

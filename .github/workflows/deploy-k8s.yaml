@@ -50,6 +50,71 @@
 #     -name: terraform apply
 #       run: terraform apply PLAN  
 
+# name: Deploy to Kubernetes
+
+# on:
+#   push:
+#     branches:
+#       - main
+
+# env:
+#   GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+#   TF_STATE_BUCKET_NAME: ${{ secrets.GCP_TF_STATE_BUCKET }}
+
+# jobs:
+#   deploy:
+#     runs-on: ubuntu-latest
+#     env:
+#       IMAGE_TAG: ${{ github.sha }}
+#     permissions:
+#       contents: read
+#       id-token: write
+
+#     steps:
+#       - name: Checkout code
+#         uses: actions/checkout@v3
+
+#       - name: Authenticate to Google Cloud
+#         id: auth
+#         uses: google-github-actions/auth@v1
+#         with:
+#           token_format: 'access_token'
+#           workload_identity_provider: 'projects/805037304914/locations/global/workloadIdentityPools/k8s-pool/providers/k8s-provider'
+#           service_account: 'souhail-gke-sa@capable-land-467617-s5.iam.gserviceaccount.com'
+
+#       - name: Set up gcloud
+#         uses: google-github-actions/setup-gcloud@v1
+
+#       - name: Docker auth
+#         run: gcloud auth configure-docker
+
+#       - name: Build and push docker image
+#         run: |
+#           # docker build -t us.gcr.io/$GCP_PROJECT_ID/nodeappimage:$IMAGE_TAG .
+#           # docker push us.gcr.io/$GCP_PROJECT_ID/nodeappimage:$IMAGE_TAG
+#         working-directory: ./nodeapp
+
+#       - name: Set up Terraform
+#         uses: hashicorp/setup-terraform@v2
+
+#       - name: Terraform init
+#         run: terraform init -backend-config="bucket=$TF_STATE_BUCKET_NAME" -backend-config="prefix=k8s"
+#         working-directory: ./terraform
+
+#       - name: Terraform plan
+#         run: |
+#           terraform plan \
+#           -var="region=us-central1" \
+#           -var="project_id=$GCP_PROJECT_ID" \
+#           -var="container_image=us.gcr.io/$GCP_PROJECT_ID/nodeappimage:$IMAGE_TAG" \
+#           -out=PLAN
+#         working-directory: ./terraform
+
+#       - name: Terraform apply
+#         run: terraform apply PLAN
+#         working-directory: ./terraform
+
+
 name: Deploy to Kubernetes
 
 on:
@@ -71,9 +136,11 @@ jobs:
       id-token: write
 
     steps:
+      # Step 1: Checkout Code
       - name: Checkout code
         uses: actions/checkout@v3
 
+      # Step 2: Authenticate with Google Cloud
       - name: Authenticate to Google Cloud
         id: auth
         uses: google-github-actions/auth@v1
@@ -82,34 +149,41 @@ jobs:
           workload_identity_provider: 'projects/805037304914/locations/global/workloadIdentityPools/k8s-pool/providers/k8s-provider'
           service_account: 'souhail-gke-sa@capable-land-467617-s5.iam.gserviceaccount.com'
 
+      # Step 3: Setup Google Cloud SDK
       - name: Set up gcloud
         uses: google-github-actions/setup-gcloud@v1
 
-      - name: Docker auth
-        run: gcloud auth configure-docker
+      # Step 4: Authenticate Docker for Artifact Registry
+      - name: Docker auth for Artifact Registry
+        run: gcloud auth configure-docker us-docker.pkg.dev
 
+      # Step 5: Build & Push Docker Image to Artifact Registry
       - name: Build and push docker image
         run: |
-          docker build -t us.gcr.io/$GCP_PROJECT_ID/nodeappimage:$IMAGE_TAG .
-          docker push us.gcr.io/$GCP_PROJECT_ID/nodeappimage:$IMAGE_TAG
+          docker build -t us-docker.pkg.dev/$GCP_PROJECT_ID/nodeapp-repo/nodeappimage:$IMAGE_TAG .
+          docker push us-docker.pkg.dev/$GCP_PROJECT_ID/nodeapp-repo/nodeappimage:$IMAGE_TAG
         working-directory: ./nodeapp
 
+      # Step 6: Setup Terraform
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v2
 
+      # Step 7: Terraform Init (Configure Backend)
       - name: Terraform init
         run: terraform init -backend-config="bucket=$TF_STATE_BUCKET_NAME" -backend-config="prefix=k8s"
         working-directory: ./terraform
 
+      # Step 8: Terraform Plan
       - name: Terraform plan
         run: |
           terraform plan \
-          -var="region=us-central1" \
-          -var="project_id=$GCP_PROJECT_ID" \
-          -var="container_image=us.gcr.io/$GCP_PROJECT_ID/nodeappimage:$IMAGE_TAG" \
-          -out=PLAN
+            -var="region=us-central1" \
+            -var="project_id=$GCP_PROJECT_ID" \
+            -var="container_image=us-docker.pkg.dev/$GCP_PROJECT_ID/nodeapp-repo/nodeappimage:$IMAGE_TAG" \
+            -out=PLAN
         working-directory: ./terraform
 
+      # Step 9: Terraform Apply
       - name: Terraform apply
         run: terraform apply PLAN
         working-directory: ./terraform
